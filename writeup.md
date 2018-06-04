@@ -1,108 +1,49 @@
-# CarND-Controls-MPC
+# CarND-Controls-MPC writeup
 Self-Driving Car Engineer Nanodegree Program
 
 ---
 
-## Dependencies
+## Notes
+* Had to run the simulator under host windows, and code under linux VM, since simulator was unusably slow in VM.
+* Used this to link VM to host: https://discussions.udacity.com/t/running-simulator-on-windows-and-code-on-ubuntu/255869
+* Based most of my code on the MPC lessons and the MPC quiz at https://github.com/udacity/CarND-MPC-Quizzes
+* Lots of forum inspiration for this project, referred to forums many times
+* Yellow reference line behaves erratically sometimes, seems due to latency and high turn rates, see https://discussions.udacity.com/t/yellow-line-behaves-erratically-with-latency/482087, https://discussions.udacity.com/t/why-my-yellow-line-keep-swing-when-drive-speed-is-big/350140
 
-* cmake >= 3.5
- * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1(mac, linux), 3.81(Windows)
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
-    Some function signatures have changed in v0.14.x. See [this PR](https://github.com/udacity/CarND-MPC-Project/pull/3) for more details.
+[//]: # (Image References)
+[image1]: ./MPC.png
+[image2]: ./MPC2.png
+[image3]: ./MPC3.png
 
-* **Ipopt and CppAD:** Please refer to [this document](https://github.com/udacity/CarND-MPC-Project/blob/master/install_Ipopt_CppAD.md) for installation instructions.
-* [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page). This is already part of the repo so you shouldn't have to worry about it.
-* Simulator. You can download these from the [releases tab](https://github.com/udacity/self-driving-car-sim/releases).
-* Not a dependency but read the [DATA.md](./DATA.md) for a description of the data sent back from the simulator.
+![alt text][image1]
+![alt text][image2]
+![alt text][image3]
 
+## The Model
+Student describes their model in detail. This includes the state, actuators and update equations.
 
-## Basic Build Instructions
+I used the same kinematic model as in the MPC quiz/lessons. This is a simple model that does not account for dynamics, but a simulation doesn't fully account for dynamics anyway and it is close enough for this purpose. The state of this model has position (x,y) heading or yaw (psi) and velocity (v). It could probably be expanded to include d(psi)/dt. The actuators are the steering and throttle of the vehicle.
 
-1. Clone this repo.
-2. Make a build directory: `mkdir build && cd build`
-3. Compile: `cmake .. && make`
-4. Run it: `./mpc`.
+Update equations capture the effect of actuators on the kinematic propagation of state in time. These equations are found in class FG_eval, line 121-126 of MPC.cpp. They are structured as contraints, i.e. The future value of state must be equal to current state propagated through kinematics and actuation.
 
-## Tips
+## Timestep Length and Elapsed Duration (N & dt)
+N x dt is the horizon time, which is how long you are looking forward in time for your model. I eventually chose 2 seconds, as this is enough to capture upcoming cornering, without taking to long to optimise or allowing model error to become a problem. Over longer horizons the model will lose accuracy, complexity increases, and the reference line does not always stay in the middle of the road as noted above - predicting over a longer horizon when the reference is off is counter productive. Shorter horizons do not capture enough of the required future behaviour to work well.
 
-1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
-is the vehicle starting offset of a straight line (reference). If the MPC implementation is correct, after some number of timesteps
-(not too many) it should find and track the reference line.
-2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
-3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.)
-4.  Tips for setting up your environment are available [here](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/0949fca6-b379-42af-a919-ee50aa304e6a/lessons/f758c44c-5e40-4e01-93b5-1a82aa4e044f/concepts/23d376c7-0195-4276-bdf0-e02f1f3c665d)
-5. **VM Latency:** Some students have reported differences in behavior using VM's ostensibly a result of latency.  Please let us know if issues arise as a result of a VM environment.
+I chose a reference speed of 40mph in order to maintain control of the vehicle. At this speed, a reaction time of 100ms is sufficient, so I used this as my dt. N is then calculated as 20. This seemed to work ok in practise, though I'm sure it could be tuned and optimised for better performance.
 
-## Editor Settings
+## Polynomial Fitting and MPC Preprocessing
+The cross-track-error and heading error are much simpler to calculate in the car reference frame (especially if you make a few assumptions as I do) so I first moved everything into the car reference frame.
 
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
+Car position and heading are set to zero, and velocity as reported from the simulator is in miles per hour. Calculations for kinematics are done in SI units, so v is converted to m/s before anything else.
 
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+Waypoints are transformed though translation and rotation into the car reference frame as below:
 
-## Code Style
+waypoint_car(x) = cos(psi) * (waypoint_map(x)-car_map(x)) + sin(psi) * (waypoint_map(y)-car_map(y));
+waypoint_car(y) = -sin(psi) * (waypoint_map(x)-car_map(x)) + cos(psi) * (waypoint_map(y)-car_map(y));
 
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
+A third order polynomial is fitted to waypoints. Making the assumption that the heading of the car does not deviate significantly from the desired heading (must initialise well, poor recovery from significant heading errors!), the cross track error is simply the polynomial evaluated at x=0, which is the car x position in the car frame. Similarly, the car frame and this assumption simplifies the heading error calculation since the derivative of the polynomial is just the linear coefficient, because all other terms are cancelled by x=0. The heading in the car reference frame is zero, so the heading error is just -atan(linear coefficient).
 
-## Project Instructions and Rubric
+## Model Predictive Control with Latency
+The project requires a 100ms control latency. I dealt with this by propagating the state and errors forward by 100ms though the kinematic equations with actuation before submitting to the MPC solver. When the delay is implemented, the control output from the solver are for the state the car is in when it recieves the controls. Further work could be done here by accounting for computional delay of the solver. Also, I think the wobbling of the yellow line when turning quickly has something to do with delays, but I haven't fully figured that out yet.
 
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
-
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
-
-## Hints!
-
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
-
-## Call for IDE Profiles Pull Requests
-
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+The cost function took some tuning to get right. I wanted a way to make the car slow down around corners, so I tried adding a cost due to throttle x steering. This improved performance quite a lot. I also had to add a high cost to steering angle, and to the gap between sequential actuations. This results in a smooth drive with reasonable performance.
