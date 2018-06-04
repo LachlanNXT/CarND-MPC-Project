@@ -10,14 +10,8 @@ Self-Driving Car Engineer Nanodegree Program
 * Lots of forum inspiration for this project, referred to forums many times
 * Yellow reference line behaves erratically sometimes, seems due to latency and high turn rates, see https://discussions.udacity.com/t/yellow-line-behaves-erratically-with-latency/482087, https://discussions.udacity.com/t/why-my-yellow-line-keep-swing-when-drive-speed-is-big/350140
 
-[//]: # (Image References)
-[image1]: ./MPC.PNG
-[image2]: ./MPC2.PNG
-[image3]: ./MPC3.PNG
-
-![alt text][image1]
-![alt text][image2]
-![alt text][image3]
+Project code running in simulation:
+https://youtu.be/asASXz-rxc8
 
 ## The Model
 I used the same kinematic model as in the MPC quiz/lessons. This is a simple model that does not account for dynamics, but a simulation doesn't fully account for dynamics anyway and it is close enough for this purpose. The state of this model has position (x,y) heading or yaw (psi) and velocity (v). It could probably be expanded to include d(psi)/dt. The actuators are the steering and throttle of the vehicle.
