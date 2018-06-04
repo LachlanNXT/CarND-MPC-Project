@@ -24,7 +24,7 @@ const double Lf = 2.67;
 // NOTE: feel free to play around with this
 // or do something completely different
 const double mph_to_mps = 0.447;
-double ref_v = 40 * mph_to_mps;
+double ref_v = 60 * mph_to_mps;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -57,13 +57,14 @@ class FG_eval {
       fg[0] += CppAD::pow(vars[cte_start + t], 2);
       fg[0] += CppAD::pow(vars[epsi_start + t], 2);
       fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += CppAD::pow(vars[v_start + t] * vars[psi_start + t] * vars[psi_start + t], 2);
     }
 
     // Minimize the use of actuators.
     for (size_t t = 0; t < N - 1; t++) {
-      fg[0] += 500* CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += 1200* CppAD::pow(vars[delta_start + t], 2);
       fg[0] += CppAD::pow(vars[a_start + t], 2);
-      fg[0] += 1000* CppAD::pow(vars[a_start + t] * vars[delta_start + t], 2);
+      //fg[0] += 1000* CppAD::pow(vars[a_start + t] * vars[delta_start + t], 2);
     }
 
      // Minimize the value gap between sequential actuations.
