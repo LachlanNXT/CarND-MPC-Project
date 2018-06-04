@@ -11,17 +11,15 @@ Self-Driving Car Engineer Nanodegree Program
 * Yellow reference line behaves erratically sometimes, seems due to latency and high turn rates, see https://discussions.udacity.com/t/yellow-line-behaves-erratically-with-latency/482087, https://discussions.udacity.com/t/why-my-yellow-line-keep-swing-when-drive-speed-is-big/350140
 
 [//]: # (Image References)
-[image1]: ./MPC.png
-[image2]: ./MPC2.png
-[image3]: ./MPC3.png
+[image1]: ./MPC.PNG
+[image2]: ./MPC2.PNG
+[image3]: ./MPC3.PNG
 
 ![alt text][image1]
 ![alt text][image2]
 ![alt text][image3]
 
 ## The Model
-Student describes their model in detail. This includes the state, actuators and update equations.
-
 I used the same kinematic model as in the MPC quiz/lessons. This is a simple model that does not account for dynamics, but a simulation doesn't fully account for dynamics anyway and it is close enough for this purpose. The state of this model has position (x,y) heading or yaw (psi) and velocity (v). It could probably be expanded to include d(psi)/dt. The actuators are the steering and throttle of the vehicle.
 
 Update equations capture the effect of actuators on the kinematic propagation of state in time. These equations are found in class FG_eval, line 121-126 of MPC.cpp. They are structured as contraints, i.e. The future value of state must be equal to current state propagated through kinematics and actuation.
@@ -39,6 +37,7 @@ Car position and heading are set to zero, and velocity as reported from the simu
 Waypoints are transformed though translation and rotation into the car reference frame as below:
 
 waypoint_car(x) = cos(psi) * (waypoint_map(x)-car_map(x)) + sin(psi) * (waypoint_map(y)-car_map(y));
+
 waypoint_car(y) = -sin(psi) * (waypoint_map(x)-car_map(x)) + cos(psi) * (waypoint_map(y)-car_map(y));
 
 A third order polynomial is fitted to waypoints. Making the assumption that the heading of the car does not deviate significantly from the desired heading (must initialise well, poor recovery from significant heading errors!), the cross track error is simply the polynomial evaluated at x=0, which is the car x position in the car frame. Similarly, the car frame and this assumption simplifies the heading error calculation since the derivative of the polynomial is just the linear coefficient, because all other terms are cancelled by x=0. The heading in the car reference frame is zero, so the heading error is just -atan(linear coefficient).
